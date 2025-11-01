@@ -1,0 +1,33 @@
+{
+  "model": "gpt-4o-mini",
+  "system_prompt": "You are a taxonomy assistant classifying neuroscience tags by specificity.",
+  "entries": [
+    {
+      "tag": "hippocampus",
+      "category": "brain_regions",
+      "prompt": "Classify the specificity of 'hippocampus' within brain_regions.",
+      "response": {
+        "specificity": "specific_enough",
+        "explanation": "Refers to a concrete brain structure widely studied."
+      }
+    },
+    {
+      "tag": "brain",
+      "category": "brain_regions",
+      "prompt": "Classify the specificity of 'brain' within brain_regions.",
+      "response": {
+        "specificity": "too_generic",
+        "explanation": "Overly broad term covering the entire organ."
+      }
+    },
+    {
+      "tag": "Morris water maze",
+      "category": "methods",
+      "prompt": "Classify the specificity of 'Morris water maze' within methods.",
+      "response": {
+        "specificity": "very_specific",
+        "explanation": "Specific behavioral assay with a narrow use case."
+      }
+    }
+  ]
+}

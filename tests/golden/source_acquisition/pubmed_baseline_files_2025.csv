@@ -1,0 +1,4 @@
+name,url,last_modified,size,md5_url,md5_last_modified,md5_size
+pubmed25n0001.xml.gz,ftp://ftp.ncbi.nlm.nih.gov/pubmed/baseline/pubmed25n0001.xml.gz,01-Jan-2025 01:00,123M,ftp://ftp.ncbi.nlm.nih.gov/pubmed/baseline/pubmed25n0001.xml.gz.md5,01-Jan-2025 01:05,60
+pubmed25n0002.xml.gz,ftp://ftp.ncbi.nlm.nih.gov/pubmed/baseline/pubmed25n0002.xml.gz,01-Jan-2025 02:00,120M,,,
+pubmed25n0003.xml.gz,ftp://ftp.ncbi.nlm.nih.gov/pubmed/baseline/pubmed25n0003.xml.gz,01-Jan-2025 03:00,120M,ftp://ftp.ncbi.nlm.nih.gov/pubmed/baseline/pubmed25n0003.xml.gz.md5,01-Jan-2025 03:00,60

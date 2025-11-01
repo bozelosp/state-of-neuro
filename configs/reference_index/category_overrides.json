@@ -1,0 +1,15 @@
+{
+  "brain_regions": {
+    "aliases": {
+      "hippocampal formation": "Hippocampus"
+    },
+    "augment": [
+      {
+        "canonical": "prefrontal cortex",
+        "variants": [
+          "dorsolateral prefrontal cortex"
+        ]
+      }
+    ]
+  }
+}

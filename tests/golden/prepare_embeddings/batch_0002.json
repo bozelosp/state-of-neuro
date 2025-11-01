@@ -1,0 +1,10 @@
+[
+  {
+    "hash_id": "id2",
+    "embedding": [5, 6, 7],
+    "metadata": {
+      "topics": ["topic"],
+      "tags": ["tag"]
+    }
+  }
+]

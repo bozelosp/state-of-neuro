@@ -1,0 +1,2 @@
+# Variants that should be excluded from public reference artefacts.
+deprecated_tag_example

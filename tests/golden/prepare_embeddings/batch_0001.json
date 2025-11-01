@@ -1,0 +1,10 @@
+[
+  {
+    "hash_id": "id1",
+    "embedding": [0, 1, 2],
+    "metadata": {
+      "title": "Doc 1",
+      "abstract": "Abstract 1"
+    }
+  }
+]

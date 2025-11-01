@@ -1,0 +1,98 @@
+# configs/config_schema.yaml
+version: 1
+description: Baseline configuration schema for the neuroscience pipeline.
+
+paths:
+  repo_root:
+    type: path
+    default: ..
+  data_root:
+    type: path
+    default: ../data
+  generated_root:
+    type: path
+    default: ../artifacts
+
+steps:
+  source_acquisition:
+    listing_path: ${data_root}/raw/pubmed_{steps.source_acquisition.default_year}.html
+    listing_url: https://ftp.ncbi.nlm.nih.gov/pubmed/baseline/
+    manifest_directory: ${generated_root}/manifests
+    default_year: 2025
+    ftp_base_url: https://ftp.ncbi.nlm.nih.gov/pubmed/baseline/
+    manifest_name_template: pubmed_baseline_files_{year}.csv
+    download_dir: ${generated_root}/pubmed_baseline
+    max_files: 3
+    verify_md5: true
+  filter_neuroscience_journals:
+    input_csv: ${data_root}/journal_files/scimagojr_2023.csv
+    output_csv: ${generated_root}/journals/neuroscience_only.csv
+    area_name: neuroscience
+    areas_column: Areas
+    metric_column: "Cites / Doc. (2years)"
+    delimiter: ";"
+  abstract_ingestion:
+    input_dir: ${data_root}/raw
+    output_dir: ${generated_root}/abstracts
+    batch_size: 200000
+    min_abstract_length: 450
+    metadata_output: ${generated_root}/abstracts/hash_id_to_metadata.pkl
+    manifest_path: ${generated_root}/abstracts/hash_id_manifest.csv
+    hash_fields:
+      - title
+      - abstract
+      - doi
+      - journal
+  keyword_generation:
+    input_dir: ${generated_root}/abstracts
+    output_dir: ${generated_root}/keywords
+    responses_path: ${repo_root}/tests/fixtures/keywords/responses.json
+    prompt_path: ${config_dir}/keyword_prompt.json
+    max_concurrency: 32
+  keyword_aggregation:
+    keywords_dir: ${generated_root}/keywords
+    metadata_path: ${generated_root}/abstracts/hash_id_to_metadata.pkl
+    output_dir: ${generated_root}/keywords/aggregated
+    top_n: 15000
+  embedding_generation:
+    input_dir: ${generated_root}/abstracts
+    output_dir: ${data_root}/embeddings_raw
+    responses_path: ${repo_root}/tests/fixtures/embeddings/responses.json
+    max_concurrency: 32
+  embedding_preparation:
+    input_dir: ${data_root}/embeddings_raw
+    output_dir: ${generated_root}/embeddings
+    embed_dim: 800
+    block_size: 50000
+  topic_trends:
+    authoritative_clusters_path: ${generated_root}/master/MASTER_TAG_CLUSTERS.json
+    metadata_path: ${generated_root}/abstracts/hash_id_to_metadata.pkl
+    output_dir: ${generated_root}/topic_trends
+    master_tag_clusters_path: ${generated_root}/master/MASTER_TAG_CLUSTERS.json
+    excluded_tags_path: null
+    apply_excluded_tags: false
+    case_variants_path: ${generated_root}/topic_trends/tag_case_variants.json
+    use_cluster_key_as_label: true
+    compute_case_variants: false
+    recreate_case_variants_on_miss: true
+    miscellaneous_limit: 300
+    min_frequency: 24
+  trend_pipeline:
+    scenario: local_repro
+    metrics_dir: ${generated_root}/trends/metrics
+    faiss_dir: ${generated_root}/trends/indices
+    quality_gates: ${config_dir}/quality_gates.yaml
+  frontend_export:
+    output_dir: ${generated_root}/web_exports
+    schema_version: 1
+
+logging:
+  level: INFO
+  json_logs: true
+  log_dir: ../logs/pipeline
+
+artifacts:
+  manifest_file: ../PIPELINE_GUIDES.md
+  checksum_algo: sha256
+
+config_dir: ${repo_root}/configs

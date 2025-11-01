@@ -1,0 +1,7 @@
+{
+  "tags": {
+    "clusters": [
+      {"canonical": "Alpha", "variants": ["Alpha", "alpha"]}
+    ]
+  }
+}

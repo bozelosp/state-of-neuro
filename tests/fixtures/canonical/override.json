@@ -1,0 +1,8 @@
+{
+  "aliases": {
+    "Beta": "Beta canonical"
+  },
+  "extra_clusters": [
+    {"canonical": "Extra", "variants": ["Extra1", "Extra2"]}
+  ]
+}

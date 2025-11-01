@@ -1,0 +1,22 @@
+[
+  {
+    "canonical": "Alpha",
+    "variants": [
+      "Alpha",
+      "alpha"
+    ]
+  },
+  {
+    "canonical": "Beta canonical",
+    "variants": [
+      "Beta"
+    ]
+  },
+  {
+    "canonical": "Extra",
+    "variants": [
+      "Extra1",
+      "Extra2"
+    ]
+  }
+]

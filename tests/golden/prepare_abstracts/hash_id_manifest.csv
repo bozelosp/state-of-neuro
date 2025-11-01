@@ -1,0 +1,4 @@
+source_file,total,retained,dropped_short,dropped_invalid,duplicates
+part1.json,2,1,1,0,0
+part2.json,2,1,0,0,1
+__TOTAL__,4,2,1,0,1
