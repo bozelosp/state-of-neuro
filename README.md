@@ -1,4 +1,4 @@
-# State of Neuroscience Project by WWN for [The Transmitter](https://www.thetransmitter.org/) ❤️
+# State of Neuroscience 2025 (by [The Transmitter](https://www.thetransmitter.org/) & WWN)
 
 **Team & roles**
 
@@ -30,7 +30,7 @@ Audit-ready rebuild of [The Transmitter](https://www.thetransmitter.org/) topic 
 | Step 10: Topic-trend export | `scripts/topic_trends_export.py` | Consume the master clusters + `hash_id_to_metadata.pkl` to generate the Moritz-ready topic-trend bundles (full/lean) and year totals. | `artifacts/topic_trends/topic_trends_full.json`, `topic_trends_lean.json`, `year_totals_full.json`, `year_totals_used.json`, `category_summaries/` |
 | CLI helper | `scripts/run_step.py` | Entry point for running individual steps via config. | Step-specific logs and manifests |
 
-### Recommended Execution Order
+### Execution Order
 1. **Step 1: Source acquisition** (`python scripts/run_step.py source_acquisition …`).
 2. **Step 2: Neuroscience journal filter** (`python scripts/run_step.py filter_neuroscience_journals …`).
 3. **Step 3: Abstract ingestion** (`python scripts/run_step.py abstract_ingestion …`).
