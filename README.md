@@ -72,7 +72,7 @@ Golden outputs for the assertions above live in `tests/golden/`.
 
 ### Test Suite Layout
 - `tests/unit/`: Deterministic functional coverage for pipeline steps 1–6. Assertions diff against the matching `tests/golden/` payloads.
-- `tests/housekeeping/`: Code quality and repository convention checks (path-header enforcement, canonical diff harness, config parsing).
+- `tests/housekeeping/`: Code quality and repository convention checks (currently: path-header enforcement).
 - `tests/smoke/`: Confirms the postponed category pipeline and Moritz dashboard export stubs continue to raise `NotImplementedError` until those milestones land.
 
 ### Running Tests
