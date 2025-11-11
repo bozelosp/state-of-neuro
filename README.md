@@ -25,9 +25,9 @@ Audit-ready rebuild of [The Transmitter](https://www.thetransmitter.org/) topic 
 | Step 4: Keyword extraction | `scripts/generate_keywords.py` | Replay cached keyword responses produced alongside the fixture prompts. | `artifacts/keywords/keywords_batch_<####>.json` |
 | Step 5: Keyword aggregation & trend seeding | `scripts/aggregate_keywords.py` | Walk `hash_id_to_metadata.pkl` + keyword batches, deduplicate, and rank the top ~15,000 keywords with total counts (plus per-year breakdowns) for specificity analysis. | `artifacts/keywords/aggregated/top_keywords.parquet`, `keyword_year_counts.json` |
 | Step 6: Embedding generation *(optional)* | `scripts/generate_embeddings.py` | Replay cached OpenAI `text-embedding-3-large` responses bundled for testing. | `data/embeddings_raw/embeddings_batch_<####>.json` |
-| Step 7: Specificity scoring *(queued – 11/12/25)* | — | :hourglass_flowing_sand: Score the top keywords so we can drop generic tags before canonicalisation. | — |
-| Step 8: Canonical clustering *(queued – 11/12/25)* | — | :hourglass_flowing_sand: Collapse nearly identical tags via semantic distance, Levenshtein, bidirectional species expansion, and singular↔plural normalization. | — |
-| Step 9: Category assignment *(queued – 11/12/25)* | `scripts/run_category_pipeline.py` | :hourglass_flowing_sand: Build the production “master” cluster file (authoritative categories + variants) from the curated tag set. | — |
+| Step 7: Specificity scoring *(queued – 12 Nov 2025)* | — | :hourglass_flowing_sand: Score the top keywords so we can drop generic tags before canonicalisation. | — |
+| Step 8: Canonical clustering *(queued – 12 Nov 2025)* | — | :hourglass_flowing_sand: Collapse nearly identical tags via semantic distance, Levenshtein, bidirectional species expansion, and singular↔plural normalization. | — |
+| Step 9: Category assignment *(queued – 12 Nov 2025)* | `scripts/run_category_pipeline.py` | :hourglass_flowing_sand: Build the production "master" cluster file (authoritative categories + variants) from the curated tag set. | — |
 | Step 10: Topic-trend export | `scripts/topic_trends_export.py` | Consume the master clusters + `hash_id_to_metadata.pkl` to generate the Moritz-ready topic-trend bundles (full/lean) and year totals. | `artifacts/topic_trends/topic_trends_full.json`, `topic_trends_lean.json`, `year_totals_full.json`, `year_totals_used.json`, `category_summaries/` |
 | CLI helper | `scripts/run_step.py` | Entry point for running individual steps via config. | Step-specific logs and manifests |
 
@@ -39,10 +39,9 @@ Audit-ready rebuild of [The Transmitter](https://www.thetransmitter.org/) topic 
 5. **Step 5: Keyword aggregation** (`python scripts/run_step.py keyword_aggregation …`) to compute the top ~15,000 keywords and year counts used by the specificity scorer.
 6. **Step 6: Embedding generation** (`python scripts/run_step.py embedding_generation …`, optional) when downstream analysis needs vectors.
 
-Steps 7–9 remain as queued placeholders slated for Wednesday's implementation pass (12/11/2025). Once they land, run `python scripts/topic_trends_export.py --config configs/default.yaml` to produce the Moritz-ready bundles.
+Steps 7–9 remain as queued placeholders slated for Wednesday's implementation pass (12 Nov 2025). Once they land, run `python scripts/topic_trends_export.py --config configs/default.yaml` to produce the Moritz-ready bundles.
 
 ## Step Details
-Implemented steps ship with deterministic fixtures and golden outputs:
 - **Step 1: Source acquisition** (`scripts/source_acquisition.py`): Build manifests (and optional downloads) from cached or live PubMed listings; configure listing paths, year, `download_dir`, `max_files`, and `verify_md5`.
 - **Step 2: Neuroscience journal filter** (`scripts/filter_neuroscience_journals.py`): Trim SCImago exports to a neuroscience-only whitelist; configure area, delimiter, and metric column.
 - **Step 3: Abstract ingestion** (`scripts/prepare_abstracts.py`): Normalize abstracts, enforce length, and hash into batched JSON plus metadata manifest; configure minimum length, batch size, and hash fields.
@@ -50,13 +49,13 @@ Implemented steps ship with deterministic fixtures and golden outputs:
 - **Step 5: Keyword aggregation & trend seeding** (`scripts/aggregate_keywords.py`): Combine `hash_id_to_metadata.pkl` with the generated keyword batches, deduplicate, and emit the top ~15,000 keywords plus per-year counts for specificity analysis (requires `pandas` to write the Parquet output).
 - **Step 6: Embedding generation** (`scripts/generate_embeddings.py`, optional): Replay cached `text-embedding-3-large` vectors packaged for regression tests (replace with your own caches for full runs); configure paths and concurrency.
 
-Queued placeholders slated for Monday's implementation (11/11/2025):
+Queued placeholders slated for Tuesday's implementation (12 Nov 2025):
 - **Step 7: Specificity scoring *(queued)***: Restore the scorer to grade keyword granularity before canonicalization; annotations already live under `data/specificity/` awaiting wiring.
 - **Step 8: Canonical clustering *(queued)***: Rehydrate the canonical heuristic bundle—semantic distance checks against embedding centroids, Levenshtein distance for near-miss strings, bidirectional species-name expansion, and singular↔plural normalization—to collapse near-identical tags under one canonical concept and surface override manifests for review.
 - **Step 9: Category pipeline *(queued)*** (`scripts/run_category_pipeline.py`): Rebuild automated category exports and golden fixtures so downstream loaders regain parity.
 
 ### Category Tagging Scope
-The keyword aggregation output becomes the input to the (queued) specificity scorer. Once Steps 7–9 land, their curated clusters will feed into `scripts/topic_trends_export.py`, which will combine the master clusters with `hash_id_to_metadata.pkl` to produce the per-year topic counts, lean/full bundles, and category summaries that power Moritz Stefaner's visualization. The reinstated Step 8 heuristics (semantic distance, Levenshtein, bidirectional species expansion, singular↔plural swaps) ensure near-identical tags collapse under shared concepts, while the restored `scripts/run_category_pipeline.py` stub for Step 9 marks where automated category tagging and export regeneration will land on Monday (11/11/2025).
+The keyword aggregation output becomes the input to the (queued) specificity scorer. Once Steps 7–9 land, their curated clusters will feed into `scripts/topic_trends_export.py`, which will combine the master clusters with `hash_id_to_metadata.pkl` to produce the per-year topic counts, lean/full bundles, and category summaries that power Moritz Stefaner's visualization. The reinstated Step 8 heuristics (semantic distance, Levenshtein, bidirectional species expansion, singular↔plural swaps) ensure near-identical tags collapse under shared concepts, while the restored `scripts/run_category_pipeline.py` stub for Step 9 marks where automated category tagging and export regeneration will land on Tuesday (12 Nov 2025).
 
 ## Test Strategy
 Pytest runs a fully offline suite backed by deterministic fixtures and golden outputs. Each implemented pipeline step replays miniature PubMed snapshots plus synthetic keyword and embedding response caches under `tests/fixtures`, so we can assert bit-for-bit reproducibility without touching external services or reissuing OpenAI workloads.
