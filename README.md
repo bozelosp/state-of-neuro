@@ -1,4 +1,5 @@
-# State of Neuroscience 2025 (by [The Transmitter](https://www.thetransmitter.org/) & WWN)
+# State of Neuroscience 2025
+*A collaboration between [The Transmitter](https://www.thetransmitter.org/) and World Wide Neuro*
 
 **Team & roles**
 
