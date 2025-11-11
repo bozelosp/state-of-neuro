@@ -1,4 +1,4 @@
-# state_of_neuro/tests/unit/test_path_headers.py
+# state_of_neuro/tests/housekeeping/test_path_headers.py
 """Enforce file header convention across pipeline source files."""
 
 from __future__ import annotations
