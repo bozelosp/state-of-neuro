@@ -1,125 +1,158 @@
 # State of Neuroscience 2025
 *A collaboration between [The Transmitter](https://www.thetransmitter.org/) and World Wide Neuro*
 
-## Reproduction status
+## Status
 
-**The 2025 interactive is published; this repository is an incomplete rebuild of
-its analysis pipeline. It does not currently reproduce the published report
-from PubMed end to end.** Steps 7–9 are unavailable here, and the production
-input/output dataset is not included. The old November 2025 implementation
-dates were plans, not completed releases.
+**Steps 7–9 now have executable implementations recovered from the historical
+analysis source.** They score specificity, cluster synonymous terms, preserve
+reviewed category decisions and produce the authoritative clusters consumed by
+the existing topic-trend exporter. This is code recovery, not a claim that a new
+run reproduces the published 2025 dataset bit for bit.
 
 - [Published interactive](https://stateofneuroscience.thetransmitter.org/)
-- [Published scientific methods](https://www.thetransmitter.org/state-of-neuroscience-2025-map-methods/)
+- [Published methods](https://www.thetransmitter.org/state-of-neuroscience-2025-map-methods/)
 
-The methods describe approximately 346,000 papers from 1975–2024, keyword
-extraction, curated categories, term standardization and the displayed trends.
-Those methods describe the shipped analysis, not the capabilities of this
-partial rebuild. The interactive's “code and dataset” link points here; as of
-2026-10-07, there is no downloadable reproduction bundle in this repository or
-its GitHub releases. Display data served by the interactive does not provide
-the article-level inputs required by the exporter below.
+The report covers approximately 346,000 papers from 1975–2024. Its original
+article-level dataset, production caches and final editorial decisions are not
+bundled here or in a GitHub release. The interactive's reproduction link points
+to this repository; its served display data is not the original input corpus.
+The published methods, results and existing Step 10 counting code are unchanged.
 
-## What you can reproduce
-
-| Path | Available now | Limit |
-| --- | --- | --- |
-| Explore the published results | Use the interactive linked above. | Viewing released results is not rerunning the analysis. |
-| Run the offline examples | Run the tests below against small synthetic fixtures. | These are software examples, not the published corpus or scientific validation. |
-| Export from existing curated inputs | Run `scripts/topic_trends_export.py` with authoritative clusters and tagged article metadata. | This bypasses Steps 7–9 only if you already have those inputs. The published inputs and an output-parity reference are not distributed here. |
-| Rebuild from PubMed | Some individual preprocessing steps are implemented. | The missing stages and data prevent an end-to-end reproduction. |
-
-### Offline examples
-
-Use Python 3.11 for the existing serialized fixture checks:
+## Setup and commands
 
 ```bash
 python3.11 -m venv .venv
 source .venv/bin/activate
-python -m pip install pytest PyYAML beautifulsoup4 openai
+python -m pip install -r requirements.txt pytest
 python -m pytest
 ```
 
-Tests use local fixtures and mocked clients; they do not call OpenAI or download
-the corpus. `tests/smoke/test_topic_trends_export.py` exercises the real export
-CLI with a tiny curated cluster and tagged metadata, including publication
-counts and year totals. Successful tests do not establish published-data parity.
+Copy `configs/default.yaml`, set paths to your data, and run individual stages
+with `python scripts/run_step.py --config /path/to/run.yaml STEP --json`.
+Paths resolve relative to that YAML file. The config uses real-data paths;
+missing inputs are not replaced by synthetic data.
 
-### Export from already curated inputs
-
-This is a conditional path, not a way to recover the missing dataset. Supply:
-
-1. An authoritative cluster JSON file: a list of objects with `label`, `gid`
-   and `members`, or an object mapping group IDs to lists of those objects.
-   The exporter uses the `G01`–`G07` group definitions in
-   `scripts/topic_trends_export.py`.
-2. A trusted `hash_id_to_metadata.pkl`: a dictionary keyed by article ID,
-   with each article's `tags` and `pubdate` or `year`. The pickle must come
-   from a trusted source because loading it executes Python deserialization.
-   Raw Step 3 metadata is insufficient: Step 4 writes separate keyword
-   batches and does not enrich that pickle with tags.
-3. The original export settings and, if used, case-variant and exclusion
-   inputs. Defaults filter out animal models (`G05`), apply a minimum frequency
-   of 24 and limit miscellaneous entries to 300. Do not assume these defaults
-   or an arbitrary historical cluster file match the released report.
-
-Set `steps.topic_trends` in a copy of `configs/default.yaml` to those inputs
-and a new output directory. Paths resolve relative to the configuration file.
-Then run:
+After abstract ingestion and keyword generation, the recovered path is:
 
 ```bash
-python scripts/topic_trends_export.py --config /path/to/reproduction.yaml --json
+python scripts/run_step.py --config /path/to/run.yaml attach_keywords
+python scripts/run_step.py --config /path/to/run.yaml specificity_scoring
+python scripts/run_step.py --config /path/to/run.yaml term_embeddings
+# Optional when starting from recorded, reviewed category CSVs:
+python scripts/run_step.py --config /path/to/run.yaml category_assignment
+python scripts/run_step.py --config /path/to/run.yaml canonical_clustering
+python scripts/run_step.py --config /path/to/run.yaml category_pipeline
+python scripts/run_step.py --config /path/to/run.yaml topic_trends
 ```
 
-The existing exporter writes `topic_trends_full.json`, `topic_trends_lean.json`,
-`year_totals_full.json`, `year_totals_used.json` and `category_summaries/`.
-The full bundle includes article IDs and yearly counts; the lean bundle holds
-hierarchies and variants. Neither is the interactive application itself.
-A successful export from supplied inputs does not prove that its output equals
-the published 2025 dataset.
+`category_assignment` writes automated proposal CSVs. `canonical_clustering`
+consumes `categories_dir`, which can point to those proposals or to your
+recorded, reviewed CSVs. The original human curation is not regenerated by
+running the automated assignment. Term embeddings must cover whichever terms
+are present in the category files; rerun `term_embeddings` after changing them.
 
-## Implementation inventory
+Classifiers reuse saved decisions. Set their `model` explicitly to make new
+OpenAI requests using `OPENAI_API_KEY`; `model: null` requires cached decisions.
+The historical classifier used `gpt-4.1`, and the recovered prompts and default
+sampling temperature (0) are retained. This is provenance, not a recommendation
+to use an old model for a new study. Set `temperature: null` if the selected
+model does not accept it. New model decisions are new analysis, not recovered
+2025 results. Existing caches are reused even when `model` changes; use new
+cache paths to conduct a new-model run. `term_embeddings` requests only missing
+vectors using the historical `text-embedding-3-large` model by default.
 
-| Step | Entry point | Actual status |
+## Recovered inputs and outputs
+
+| Stage | Implementation and inputs | Outputs |
 | --- | --- | --- |
-| 1. Source acquisition | `scripts/source_acquisition.py` | Builds manifests and optionally downloads PubMed XML archives. Default download limit is three files. |
-| 2. Journal filter | `scripts/filter_neuroscience_journals.py` | Filters a supplied SCImago CSV; the production 2023 input is absent. |
-| 3. Abstract ingestion | `scripts/prepare_abstracts.py` | Normalizes supplied citation **JSON**. This is not an XML-to-JSON corpus extraction pipeline. |
-| 4. Keyword generation | `scripts/generate_keywords.py` | Configured runner replays supplied response caches. Default cache is synthetic; the standalone API helper is not a full-corpus workflow. |
-| 5. Keyword aggregation | `scripts/aggregate_keywords.py` | Counts supplied keywords by year; Parquet output additionally requires `pandas` and a Parquet engine such as `pyarrow`. |
-| 6. Embeddings | `scripts/generate_embeddings.py`, `scripts/prepare_embeddings.py` | Replays cached vectors and prepares batches. Default vectors are synthetic. |
-| 7. Specificity scoring | No implementation | The specificity manifest is an example, not production annotations. |
-| 8. Canonical clustering | No implementation | Canonical fixtures/golden files do not implement clustering. |
-| 9. Category assignment | `scripts/run_category_pipeline.py` | Unavailable; raises an explicit error. |
-| 10. Topic-trend export | `scripts/topic_trends_export.py` | Implemented for supplied curated clusters and tagged metadata, as described above. |
-| Additional analytics / frontend export | `scripts/run_trend_pipeline.py`, `scripts/export_for_frontend.py` | Unavailable; these do not build the published interactive. |
+| Keyword join | `attach_keywords.py`: hash-keyed metadata pickle plus `keywords_batch_*.json` | A separate tagged metadata pickle and tag/frequency records, counting each tag once per paper. |
+| 7. Specificity | `specificity_scoring.py`: tag/frequency records and saved flags or live structured classifier responses | The four historical specificity flags, frequency and model for new decisions. Failed requests propagate rather than becoming fabricated generic scores. |
+| Term vectors | `term_embeddings.py`: keyword frequency records and/or category CSVs | Cached real term vectors. Abstract embeddings from Step 6 cannot substitute for these. |
+| Category proposals | `category_assignment.py`: term/category vectors and specificity flags | Maximum-cosine category assignments with the historical specificity/frequency/cosine ranking. |
+| 8. Canonicalization | `canonical_clustering.py`: reviewed category CSVs, vectors, flags, optional acronym/species/plural tables, naming cache or live responses | Per-category canonical labels and variants, with specificity annotations. Acronym groups, then species groups, then greedy cosine/Levenshtein clusters. |
+| 9. Category compilation | `run_category_pipeline.py`: canonical clusters, optionally preserved editorial clusters | `MASTER_TAG_CLUSTERS.json` with the exporter's `label`, `gid`, `members` schema. Historical category-conflict resolutions are applied. |
+| 10. Topic export | `topic_trends_export.py`: authoritative clusters and tagged metadata | Full/lean bundles, full/used article year totals and category summaries. |
 
-`python scripts/run_step.py --help` lists individual step names. The CLI reports
-unavailable stages explicitly, including when the default config lacks their
-inputs. There is no supported “run all” command. The configuration's fixture
-paths must not be mistaken for production caches.
+Data contracts:
 
-## Recovery evidence and remaining gap
+- Category CSVs are named with historical slugs: `brain_regions.csv`,
+  `methods_metrics_technology.csv`, `disease_condition.csv`, `molecules.csv`,
+  `animal_models.csv`, `biological_and_cognitive_processes.csv`,
+  `miscellaneous.csv`. Columns are `tag,count` (`Tag` is also accepted).
+- Keyword frequency records are JSON lists of `{ "label": "...", "frequency": 1 }`.
+  Specificity caches map terms to four booleans: `too_generic`, `generic`,
+  `specific_enough`, `very_specific`; exactly one must be true.
+- Term vectors are JSON term-to-vector maps. Canonicalization also reads a
+  trusted plain-dictionary pickle. Category vectors use the slugs above as keys.
+  Use matching embedding models and dimensions. Only deserialize trusted pickles.
+- Acronym JSON maps lowercase terms to an expansion string or list; species JSON
+  maps lowercase names to their shared representative (for example,
+  `{ "mus musculus": "mouse" }`). Lookups work in both directions.
+- Optional singular/plural JSON contains records with `tag`, `singular`, `plural`.
+  Only recorded forms are expanded; the code does not guess biological synonyms.
+- Canonical naming caches map the exact historical prompt (including term
+  frequencies and lookup context) to `{ "canonical": "...", "model": "..." }`.
+  New calls populate this cache. Singletons require no naming request.
+- Optional preserved clusters use the same category-to-list format as Step 8:
+  `{ "brain_regions": [{ "canonical": "hippocampus", "variants": ["..."] }] }`.
+  Preserved labels/memberships take precedence when new clusters overlap.
 
-The public history was checked through
-[`aeb029c`](https://github.com/bozelosp/state-of-neuro/commit/aeb029cf0d0a11471a9f8f5134b3acc1a6ba8317)
-on 2026-10-07. The category, trend and frontend placeholders were already
-present in the initial
-[`6b1361f`](https://github.com/bozelosp/state-of-neuro/commit/6b1361f713bb92b6a061cf78f77dec6aeace9df1)
-commit; the five subsequent commits do not restore them. The initial commit's
-“v1.0.0” wording does not identify a downloadable GitHub release dataset.
+Category proposal defaults preserve the historical 800-vector-dimension scan,
+top 15,000 terms and inclusive cosine window 0.01–0.70. Global canonicalization
+uses the recovered thresholds 0.8 cosine / 0.825 token-sort ratio. Specificity
+flags are retained for review; there is no invented blanket generic-tag removal
+rule. CSV membership records the category selection. Export defaults exclude
+animal models (`G05`), require frequency 24 and retain at most 300 miscellaneous
+entries. These defaults alone do not identify the exact released configuration.
 
-Historical source inspection found earlier curation routines and a separate
-fixture-only replay implementation, but no verified production input bundle
-connecting them to the published outputs. Copying those routines or toy
-clusters into this rebuild would not establish faithful reproduction. They
-have therefore not been substituted for the missing steps.
+## Existing preprocessing and remaining data gap
 
-A complete reproduction still needs the original corpus selection and journal
-input, article metadata with keyword assignments, production caches and curated
-cluster decisions, and the release's export settings and reference outputs.
-Until those are recovered and matched, no end-to-end or bit-for-bit reproduction
-claim is made. The published scientific methods and results remain unchanged.
+Steps 1–6 remain available. Source acquisition downloads XML, whereas abstract
+ingestion reads prepared citation JSON; the full original corpus-extraction
+lane is not recovered here. Journal filtering requires the original SCImago
+input. Configured keyword/abstract-embedding runners replay supplied caches;
+their bundled default caches are small test fixtures, not the published corpus.
+Keyword aggregation writes Parquet and year counts. `attach_keywords` connects
+its companion keyword batches to the metadata needed downstream without
+rehashing articles or modifying the original metadata file.
+
+You can also run `python scripts/topic_trends_export.py --config /path/to/run.yaml
+--json` directly when you already possess authoritative clusters and tagged
+metadata. Neither the export command nor these recovered scripts build the
+publisher's interactive application. The unrelated empty trend/frontend wrapper
+modules and their unused config entries have been removed.
+
+A published-data rerun still requires the original corpus selection, caches,
+curated decisions, export settings and reference outputs. Recovered code is
+executable; equivalence to the 2025 release remains unverified until those
+inputs and outputs can be matched.
+
+## Recovery provenance and verification
+
+The public history through `aeb029c` contained six commits and no implementation
+behind Steps 7–9. The recovered source is from `bozelosp/state-of-neuroscience`
+revision `61358677e2ce862dd465c99c61541782d8549a70`:
+
+| Recovered behavior | Historical source |
+| --- | --- |
+| Specificity prompt, examples, structured schema | `all_categories/tag_specificity_flagging.py` |
+| Acronym/species grouping, greedy similarity, naming prompt | `canonicalization_of_tags_provided_by_Emily/gpt_fusion_canonicalizer.py` |
+| Nearest-category scan, ranking, per-paper tag counts | `neuroscience_tags_specificity.py` |
+| Editorial preservation, group IDs, conflict decisions | `all_categories/process_canonical_names.py`, `compile_master_clusters.py`, `conflict_resolutions.py` |
+| Normalization and recorded singular/plural expansion | `build_authoritative_clusters.py` |
+| Term embedding request | `embedding_utils.py` |
+
+The port replaces hardcoded paths/globals with config, connects file schemas,
+adds reusable response caches and makes equal-frequency ordering deterministic.
+It does not port random-vector or silent classification/API-failure fallbacks.
+Historical toy singleton/replay scripts were not used as scientific algorithms.
+
+Checks cover actual classification requests with mocked provider responses,
+cache reuse, synonym/species/plural grouping, nearest-category assignment,
+editorial preservation and a CLI run from keyword batches through Steps 7–10.
+The grouping port was also compared directly with the historical source on four
+representative inputs. These checks establish working code and bounded port
+parity; they do not establish full-corpus scientific replication.
 
 **Team & roles**
 

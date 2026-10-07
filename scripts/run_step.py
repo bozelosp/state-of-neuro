@@ -90,8 +90,12 @@ def main(argv: list[str] | None = None) -> int:
             "embedding_generation",
             "embedding_preparation",
             "category_pipeline",
-            "frontend_export",
-            "trend_pipeline",
+            "specificity_scoring",
+            "canonical_clustering",
+            "attach_keywords",
+            "term_embeddings",
+            "category_assignment",
+            "topic_trends",
         ],
         help="Step to execute.",
     )
@@ -107,17 +111,6 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    # Report missing implementations before attempting to resolve their inputs.
-    from scripts import export_for_frontend, run_category_pipeline, run_trend_pipeline
-
-    unavailable = {
-        "category_pipeline": run_category_pipeline.UNAVAILABLE_MESSAGE,
-        "frontend_export": export_for_frontend.UNAVAILABLE_MESSAGE,
-        "trend_pipeline": run_trend_pipeline.UNAVAILABLE_MESSAGE,
-    }
-    if args.step in unavailable:
-        parser.error(unavailable[args.step])
-
     config_path = args.config.expanduser().resolve()
     config_data = _load_config(config_path)
     steps_cfg = config_data.get("steps", {})
@@ -126,6 +119,37 @@ def main(argv: list[str] | None = None) -> int:
         raise KeyError(f"Step '{args.step}' not found in configuration.")
 
     base_dir = config_path.parent
+
+    from scripts import attach_keywords, specificity_scoring, canonical_clustering, term_embeddings
+    from scripts import run_category_pipeline, topic_trends_export, category_assignment
+
+    recovered = {
+        "attach_keywords": (attach_keywords.AttachKeywordsConfig, attach_keywords.run),
+        "category_assignment": (category_assignment.CategoryAssignmentConfig, category_assignment.run),
+        "term_embeddings": (term_embeddings.TermEmbeddingsConfig, term_embeddings.run),
+        "specificity_scoring": (specificity_scoring.SpecificityConfig, specificity_scoring.run),
+        "canonical_clustering": (canonical_clustering.CanonicalConfig, canonical_clustering.run),
+        "category_pipeline": (run_category_pipeline.CategoryPipelineConfig, run_category_pipeline.run),
+    }
+    if args.step in recovered:
+        config_type, runner = recovered[args.step]
+        values = dict(step_cfg)
+        for key, value in values.items():
+            if value is not None and (key.endswith("_path") or key.endswith("_dir")):
+                values[key] = _resolve_path(base_dir, value)
+        step_config = config_type(**values)
+        if args.dry_run:
+            _emit_config(args.step, step_config, args.json)
+            return 0
+        _emit_result(args.step, runner(step_config), args.json)
+        return 0
+    if args.step == "topic_trends":
+        step_config = topic_trends_export._config_from_yaml(step_cfg, base_dir)
+        if args.dry_run:
+            _emit_config(args.step, step_config, args.json)
+            return 0
+        _emit_result(args.step, topic_trends_export.run(step_config), args.json)
+        return 0
 
     if args.step == "source_acquisition":
         step_config = _parse_source_acquisition_config(step_cfg, base_dir)
@@ -151,6 +175,12 @@ def main(argv: list[str] | None = None) -> int:
             _emit_config("keyword_generation", step_config, args.json)
             return 0
         result = run_keyword_generation(step_config)
+    elif args.step == "keyword_aggregation":
+        step_config = _parse_keyword_aggregation_config(step_cfg, base_dir)
+        if args.dry_run:
+            _emit_config(args.step, step_config, args.json)
+            return 0
+        result = run_keyword_aggregation(step_config)
     elif args.step == "embedding_generation":
         step_config = _parse_embedding_generation_config(step_cfg, base_dir)
         if args.dry_run:

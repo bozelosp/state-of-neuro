@@ -9,7 +9,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
 import yaml
 
 
@@ -17,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_export_cli_from_curated_inputs(tmp_path: Path) -> None:
-    """Existing clusters bypass missing stages and retain article denominators."""
+    """Existing curated inputs retain article denominators through export."""
     (tmp_path / "clusters.json").write_text(json.dumps({
         "G03": [{"label": "hippocampus", "members": ["hippocampal region"]}],
     }), encoding="utf-8")
@@ -59,18 +58,3 @@ def test_export_cli_from_curated_inputs(tmp_path: Path) -> None:
                          / "brain_regions_summary.json").read_text())
     assert summary["total_entries"] == 1
     assert summary["entries"][0]["frequency"] == 2
-
-
-@pytest.mark.parametrize("step", ["category_pipeline", "trend_pipeline", "frontend_export"])
-def test_cli_reports_unavailable_stage_before_reading_inputs(tmp_path: Path, step: str) -> None:
-    """Do not misreport missing implementation as a user's configuration error."""
-    result = subprocess.run(
-        [sys.executable, str(ROOT / "scripts/run_step.py"), step,
-         "--config", str(tmp_path / "absent.yaml")],
-        cwd=tmp_path, capture_output=True, text=True,
-    )
-    assert result.returncode == 2
-    assert "unavailable in this public repository" in result.stderr
-    assert "README.md" in result.stderr
-    assert "Traceback" not in result.stderr
-    assert not list(tmp_path.iterdir())
