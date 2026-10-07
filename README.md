@@ -1,143 +1,132 @@
 # State of Neuroscience 2025
 *A collaboration between [The Transmitter](https://www.thetransmitter.org/) and World Wide Neuro*
 
+## Reproduction status
+
+**The 2025 interactive is published; this repository is an incomplete rebuild of
+its analysis pipeline. It does not currently reproduce the published report
+from PubMed end to end.** Steps 7–9 are unavailable here, and the production
+input/output dataset is not included. The old November 2025 implementation
+dates were plans, not completed releases.
+
+- [Published interactive](https://stateofneuroscience.thetransmitter.org/)
+- [Published scientific methods](https://www.thetransmitter.org/state-of-neuroscience-2025-map-methods/)
+
+The methods describe approximately 346,000 papers from 1975–2024, keyword
+extraction, curated categories, term standardization and the displayed trends.
+Those methods describe the shipped analysis, not the capabilities of this
+partial rebuild. The interactive's “code and dataset” link points here; as of
+2026-10-07, there is no downloadable reproduction bundle in this repository or
+its GitHub releases. Display data served by the interactive does not provide
+the article-level inputs required by the exporter below.
+
+## What you can reproduce
+
+| Path | Available now | Limit |
+| --- | --- | --- |
+| Explore the published results | Use the interactive linked above. | Viewing released results is not rerunning the analysis. |
+| Run the offline examples | Run the tests below against small synthetic fixtures. | These are software examples, not the published corpus or scientific validation. |
+| Export from existing curated inputs | Run `scripts/topic_trends_export.py` with authoritative clusters and tagged article metadata. | This bypasses Steps 7–9 only if you already have those inputs. The published inputs and an output-parity reference are not distributed here. |
+| Rebuild from PubMed | Some individual preprocessing steps are implemented. | The missing stages and data prevent an end-to-end reproduction. |
+
+### Offline examples
+
+Use Python 3.11 for the existing serialized fixture checks:
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install pytest PyYAML beautifulsoup4 openai
+python -m pytest
+```
+
+Tests use local fixtures and mocked clients; they do not call OpenAI or download
+the corpus. `tests/smoke/test_topic_trends_export.py` exercises the real export
+CLI with a tiny curated cluster and tagged metadata, including publication
+counts and year totals. Successful tests do not establish published-data parity.
+
+### Export from already curated inputs
+
+This is a conditional path, not a way to recover the missing dataset. Supply:
+
+1. An authoritative cluster JSON file: a list of objects with `label`, `gid`
+   and `members`, or an object mapping group IDs to lists of those objects.
+   The exporter uses the `G01`–`G07` group definitions in
+   `scripts/topic_trends_export.py`.
+2. A trusted `hash_id_to_metadata.pkl`: a dictionary keyed by article ID,
+   with each article's `tags` and `pubdate` or `year`. The pickle must come
+   from a trusted source because loading it executes Python deserialization.
+   Raw Step 3 metadata is insufficient: Step 4 writes separate keyword
+   batches and does not enrich that pickle with tags.
+3. The original export settings and, if used, case-variant and exclusion
+   inputs. Defaults filter out animal models (`G05`), apply a minimum frequency
+   of 24 and limit miscellaneous entries to 300. Do not assume these defaults
+   or an arbitrary historical cluster file match the released report.
+
+Set `steps.topic_trends` in a copy of `configs/default.yaml` to those inputs
+and a new output directory. Paths resolve relative to the configuration file.
+Then run:
+
+```bash
+python scripts/topic_trends_export.py --config /path/to/reproduction.yaml --json
+```
+
+The existing exporter writes `topic_trends_full.json`, `topic_trends_lean.json`,
+`year_totals_full.json`, `year_totals_used.json` and `category_summaries/`.
+The full bundle includes article IDs and yearly counts; the lean bundle holds
+hierarchies and variants. Neither is the interactive application itself.
+A successful export from supplied inputs does not prove that its output equals
+the published 2025 dataset.
+
+## Implementation inventory
+
+| Step | Entry point | Actual status |
+| --- | --- | --- |
+| 1. Source acquisition | `scripts/source_acquisition.py` | Builds manifests and optionally downloads PubMed XML archives. Default download limit is three files. |
+| 2. Journal filter | `scripts/filter_neuroscience_journals.py` | Filters a supplied SCImago CSV; the production 2023 input is absent. |
+| 3. Abstract ingestion | `scripts/prepare_abstracts.py` | Normalizes supplied citation **JSON**. This is not an XML-to-JSON corpus extraction pipeline. |
+| 4. Keyword generation | `scripts/generate_keywords.py` | Configured runner replays supplied response caches. Default cache is synthetic; the standalone API helper is not a full-corpus workflow. |
+| 5. Keyword aggregation | `scripts/aggregate_keywords.py` | Counts supplied keywords by year; Parquet output additionally requires `pandas` and a Parquet engine such as `pyarrow`. |
+| 6. Embeddings | `scripts/generate_embeddings.py`, `scripts/prepare_embeddings.py` | Replays cached vectors and prepares batches. Default vectors are synthetic. |
+| 7. Specificity scoring | No implementation | The specificity manifest is an example, not production annotations. |
+| 8. Canonical clustering | No implementation | Canonical fixtures/golden files do not implement clustering. |
+| 9. Category assignment | `scripts/run_category_pipeline.py` | Unavailable; raises an explicit error. |
+| 10. Topic-trend export | `scripts/topic_trends_export.py` | Implemented for supplied curated clusters and tagged metadata, as described above. |
+| Additional analytics / frontend export | `scripts/run_trend_pipeline.py`, `scripts/export_for_frontend.py` | Unavailable; these do not build the published interactive. |
+
+`python scripts/run_step.py --help` lists individual step names. The CLI reports
+unavailable stages explicitly, including when the default config lacks their
+inputs. There is no supported “run all” command. The configuration's fixture
+paths must not be mistaken for production caches.
+
+## Recovery evidence and remaining gap
+
+The public history was checked through
+[`aeb029c`](https://github.com/bozelosp/state-of-neuro/commit/aeb029cf0d0a11471a9f8f5134b3acc1a6ba8317)
+on 2026-10-07. The category, trend and frontend placeholders were already
+present in the initial
+[`6b1361f`](https://github.com/bozelosp/state-of-neuro/commit/6b1361f713bb92b6a061cf78f77dec6aeace9df1)
+commit; the five subsequent commits do not restore them. The initial commit's
+“v1.0.0” wording does not identify a downloadable GitHub release dataset.
+
+Historical source inspection found earlier curation routines and a separate
+fixture-only replay implementation, but no verified production input bundle
+connecting them to the published outputs. Copying those routines or toy
+clusters into this rebuild would not establish faithful reproduction. They
+have therefore not been substituted for the missing steps.
+
+A complete reproduction still needs the original corpus selection and journal
+input, article metadata with keyword assignments, production caches and curated
+cluster decisions, and the release's export settings and reference outputs.
+Until those are recovered and matched, no end-to-end or bit-for-bit reproduction
+claim is made. The published scientific methods and results remain unchanged.
+
 **Team & roles**
 
-- **Panos Bozelos** — Data engineering; developed this repo, from PubMed data sourcing through trend-analysis, handed off to Moritz Stefaner for visualisation.
+- **Panos Bozelos** — Data engineering; developed the analysis and data handoff to Moritz Stefaner for visualisation.
 - **Moritz Stefaner** — Visualisation & interaction design for the app/microsite.
 - **The Transmitter (Simons Foundation)**
   - **Kristin Ozelli — Executive Editor**: Oversees operations, manages the editorial team, and steers production; led the project on the editorial side.
   - **Emily Singer — Chief Opinion Editor**: Commissions/edits scientist-written content and develops community resources for the package.
   - **Rebecca Horne — Art Director**: Leads multimedia strategy; commissions and directs illustration, photography, and video.
 - **Tim Vogels** — Project advisor (oversight & feedback); professor of theoretical neuroscience at ISTA and co-founder of World Wide Neuro.
-
-## Overview
-Audit-ready rebuild of [The Transmitter](https://www.thetransmitter.org/) topic trends analysis project. Within the codebase we use "topics" and "keywords" interchangeably for the extracted tags, but when talking about the project externally we frame the work as topic trend analysis. The workflow ingests PubMed baselines, filters for neuroscience content, produces keywords and embeddings, and assembles canonical tag indices ready for editorial handoff.
-
-## Step Status
-
-### Step summary
-| Step | Script(s) | Description | Outputs |
-| --- | --- | --- | --- |
-| Step 1: Source acquisition | `scripts/source_acquisition.py` | Fetch PubMed baseline listings, build a manifest, optionally download `.xml.gz` archives with MD5 checks. | `artifacts/manifests/pubmed_baseline_files_<date>.csv`, associated `.sha256`, `artifacts/pubmed_baseline/*.xml.gz` |
-| Step 2: Neuroscience journal filter | `scripts/filter_neuroscience_journals.py` | Keep journals dedicated to neuroscience based on SCImago 2023 metadata. | `artifacts/journals/neuroscience_only.csv` |
-| Step 3: Abstract ingestion | `scripts/prepare_abstracts.py` | Normalize abstracts, enforce length/hash rules, batch PubMed citation rows, update metadata cache. | `artifacts/abstracts/abstracts_batch_<####>.json`, `hash_id_manifest.csv`, `hash_id_to_metadata.pkl` |
-| Step 4: Keyword extraction | `scripts/generate_keywords.py` | Replay cached keyword responses produced alongside the fixture prompts. | `artifacts/keywords/keywords_batch_<####>.json` |
-| Step 5: Keyword aggregation & trend seeding | `scripts/aggregate_keywords.py` | Walk `hash_id_to_metadata.pkl` + keyword batches, deduplicate, and rank the top ~15,000 keywords with total counts (plus per-year breakdowns) for specificity analysis. | `artifacts/keywords/aggregated/top_keywords.parquet`, `keyword_year_counts.json` |
-| Step 6: Embedding generation *(optional)* | `scripts/generate_embeddings.py` | Replay cached OpenAI `text-embedding-3-large` responses bundled for testing. | `data/embeddings_raw/embeddings_batch_<####>.json` |
-| Step 7: Specificity scoring *(queued – 12 Nov 2025)* | — | :hourglass_flowing_sand: Score the top keywords so we can drop generic tags before canonicalisation. | — |
-| Step 8: Canonical clustering *(queued – 12 Nov 2025)* | — | :hourglass_flowing_sand: Collapse nearly identical tags via semantic distance, Levenshtein, bidirectional species expansion, and singular↔plural normalization. | — |
-| Step 9: Category assignment *(queued – 12 Nov 2025)* | `scripts/run_category_pipeline.py` | :hourglass_flowing_sand: Build the production "master" cluster file (authoritative categories + variants) from the curated tag set. | — |
-| Step 10: Topic-trend export | `scripts/topic_trends_export.py` | Consume the master clusters + `hash_id_to_metadata.pkl` to generate the Moritz-ready topic-trend bundles (full/lean) and year totals. | `artifacts/topic_trends/topic_trends_full.json`, `topic_trends_lean.json`, `year_totals_full.json`, `year_totals_used.json`, `category_summaries/` |
-| CLI helper | `scripts/run_step.py` | Entry point for running individual steps via config. | Step-specific logs and manifests |
-
-### Execution Order
-1. **Step 1: Source acquisition** (`python scripts/run_step.py source_acquisition …`).
-2. **Step 2: Neuroscience journal filter** (`python scripts/run_step.py filter_neuroscience_journals …`).
-3. **Step 3: Abstract ingestion** (`python scripts/run_step.py abstract_ingestion …`).
-4. **Step 4: Keyword extraction** (`python scripts/run_step.py keyword_generation …`). Capture keywords to disk, then run heavy analytics against the saved batches rather than the ingestion step.
-5. **Step 5: Keyword aggregation** (`python scripts/run_step.py keyword_aggregation …`) to compute the top ~15,000 keywords and year counts used by the specificity scorer.
-6. **Step 6: Embedding generation** (`python scripts/run_step.py embedding_generation …`, optional) when downstream analysis needs vectors.
-
-Steps 7–9 remain as queued placeholders slated for Wednesday's implementation pass (12 Nov 2025). Once they land, run `python scripts/topic_trends_export.py --config configs/default.yaml` to produce the Moritz-ready bundles.
-
-## Step Details
-- **Step 1: Source acquisition** (`scripts/source_acquisition.py`): Build manifests (and optional downloads) from cached or live PubMed listings; configure listing paths, year, `download_dir`, `max_files`, and `verify_md5`.
-- **Step 2: Neuroscience journal filter** (`scripts/filter_neuroscience_journals.py`): Trim SCImago exports to a neuroscience-only whitelist; configure area, delimiter, and metric column.
-- **Step 3: Abstract ingestion** (`scripts/prepare_abstracts.py`): Normalize abstracts, enforce length, and hash into batched JSON plus metadata manifest; configure minimum length, batch size, and hash fields.
-- **Step 4: Keyword extraction** (`scripts/generate_keywords.py`): Replay cached keyword responses using the fixture prompt bundle (swap in production caches when needed); configure input/output folders, response JSON, concurrency, and the optional prompt bundle. Live replays hold the OpenAI temperature at 0.0 for deterministic outputs.
-- **Step 5: Keyword aggregation & trend seeding** (`scripts/aggregate_keywords.py`): Combine `hash_id_to_metadata.pkl` with the generated keyword batches, deduplicate, and emit the top ~15,000 keywords plus per-year counts for specificity analysis (requires `pandas` to write the Parquet output).
-- **Step 6: Embedding generation** (`scripts/generate_embeddings.py`, optional): Replay cached `text-embedding-3-large` vectors packaged for regression tests (replace with your own caches for full runs); configure paths and concurrency.
-
-Queued placeholders slated for Tuesday's implementation (12 Nov 2025):
-- **Step 7: Specificity scoring *(queued)***: Restore the scorer to grade keyword granularity before canonicalization; annotations already live under `data/specificity/` awaiting wiring.
-- **Step 8: Canonical clustering *(queued)***: Rehydrate the canonical heuristic bundle—semantic distance checks against embedding centroids, Levenshtein distance for near-miss strings, bidirectional species-name expansion, and singular↔plural normalization—to collapse near-identical tags under one canonical concept and surface override manifests for review.
-- **Step 9: Category pipeline *(queued)*** (`scripts/run_category_pipeline.py`): Rebuild automated category exports and golden fixtures so downstream loaders regain parity.
-
-### Category Tagging Scope
-The keyword aggregation output becomes the input to the (queued) specificity scorer. Once Steps 7–9 land, their curated clusters will feed into `scripts/topic_trends_export.py`, which will combine the master clusters with `hash_id_to_metadata.pkl` to produce the per-year topic counts, lean/full bundles, and category summaries that power Moritz Stefaner's visualization. The reinstated Step 8 heuristics (semantic distance, Levenshtein, bidirectional species expansion, singular↔plural swaps) ensure near-identical tags collapse under shared concepts, while the restored `scripts/run_category_pipeline.py` stub for Step 9 marks where automated category tagging and export regeneration will land on Tuesday (12 Nov 2025).
-
-## Test Strategy
-Pytest runs a fully offline suite backed by deterministic fixtures and golden outputs. Each implemented pipeline step replays miniature PubMed snapshots plus synthetic keyword and embedding response caches under `tests/fixtures`, so we can assert bit-for-bit reproducibility without touching external services or reissuing OpenAI workloads.
-
-### Fixtures at a Glance
-- **Step 1: Source acquisition:** `tests/fixtures/source_acquisition/` (FTP listing HTML + expected manifest rows).
-- **Step 2: Journal filter:** `tests/fixtures/journals/` (SCImago sample CSV).
-- **Step 3: Abstract ingestion:** `tests/fixtures/abstracts/abstracts_batch_0001.json` (mini abstract set).
-- **Step 4: Keyword generation:** `tests/fixtures/keywords/` (toy response fixtures) with the optional prompt bundle in `configs/keyword_prompt.json`.
-- **Step 5: Keyword aggregation:** regression fixtures land Monday; run against your own keywords for now.
-- **Step 6: Embedding generation:** `tests/fixtures/embeddings/` (deterministic `text-embedding-3-large` response fixtures).
-
-Golden outputs for the assertions above live in `tests/golden/`.
-
-### Test Suite Layout
-- `tests/unit/`: Deterministic functional coverage for pipeline steps 1–6. Assertions diff against the matching `tests/golden/` payloads.
-- `tests/housekeeping/`: Code quality and repository convention checks (currently: path-header enforcement).
-- `tests/smoke/`: Confirms the postponed category pipeline and Moritz dashboard export stubs continue to raise `NotImplementedError` until those milestones land.
-
-### Running Tests
-- Full suite: `pytest`
-- Per focus: `pytest tests/unit`, `pytest tests/housekeeping`, or `pytest tests/smoke`
-
-The bundled fixtures exist solely for regression coverage and keep the suite offline. Production-scale cached keywords or embeddings are **not** distributed—provision your own when reproducing full runs.
-
-## Pipeline Operations
-The State of Neuroscience project uses these commands to refresh the trend dataset delivered to [The Transmitter](https://www.thetransmitter.org/).
-
-### Running the Pipeline
-```bash
-# First, verify everything works with the test fixtures
-pytest tests
-
-# Expected output when tests pass:
-# ============================= test session starts ==============================
-# platform darwin -- Python 3.9.15, pytest-7.2.2, pluggy-1.0.0
-# rootdir: /Users/pbozelos/Dropbox/simons/state-of-neuro, configfile: pytest.ini
-# 
-# All tests passed! ✓
-# 
-# 13 tests ran successfully:
-#
-# Functionality tests (8 unit tests):
-#   - Source acquisition (3 tests)
-#   - Journal filtering
-#   - Abstract preparation
-#   - Keywords generation (2 tests)
-#   - Embeddings preparation
-#   - Embeddings generation
-#   - Keyword aggregation
-#
-# Housekeeping tests (1 test):
-#   - Path header enforcement
-#
-# Smoke tests (2 tests):
-#   - Postponed pipeline stubs
-
-# Then run the implemented steps on real data / config defaults
-python scripts/run_step.py source_acquisition
-python scripts/run_step.py filter_neuroscience_journals
-python scripts/run_step.py abstract_ingestion
-python scripts/run_step.py keyword_generation
-python scripts/run_step.py keyword_aggregation
-python scripts/run_step.py embedding_generation  # optional
-
-# Steps 7–9 (specificity, canonical clustering, category assignment) land Monday
-# Once they're in place:
-python scripts/topic_trends_export.py --config configs/default.yaml  # consumes MASTER clusters + hash metadata
-```
-
-Paths in `configs/default.yaml` default to `artifacts/` for pipelines and `data/embeddings_raw` for raw embedding caches; adjust if you run outside the repo.
-Swap in your own manifest, keyword-response, and embedding-response paths before replaying real PubMed workloads.
-
-## Repository Layout
-- `README.md`: Single consolidated reference for the pipeline initiative.
-- `configs/`: YAML defaults plus the specificity manifest (`configs/specificity/manifest.json`).
-- `scripts/`: Step implementations, deterministic fixtures, and CLI entry point.
-- `tests/`: Fixtures, golden outputs, unit tests (functionality), housekeeping tests (code quality), and smoke tests.
-- `artifacts/` (generated at runtime): step outputs when you run the pipeline.
-
-## Coming Soon
-- Step 7: Specificity scoring (`—`, queued) - bring the scorer back online so we can grade keyword granularity before canonicalization.
-- Step 8: Canonical clustering (`—`, queued) - reinstate the canonical toolkit (semantic distance + Levenshtein + bidirectional species expansion + singular↔plural normalization) to collapse near-identical tags under one concept and surface override manifests.
-- Step 9: Category pipeline (`scripts/run_category_pipeline.py`, queued) - rebuild category tagging automation and regenerate curated exports plus golden fixtures.
-- Expanded historical notes on editorial decision-making so future collaborators understand why certain keyword judgments and canonical overrides were made.

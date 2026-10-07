@@ -81,7 +81,6 @@ steps:
     scenario: local_repro
     metrics_dir: ${generated_root}/trends/metrics
     faiss_dir: ${generated_root}/trends/indices
-    quality_gates: ${config_dir}/quality_gates.yaml
   frontend_export:
     output_dir: ${generated_root}/web_exports
     schema_version: 1

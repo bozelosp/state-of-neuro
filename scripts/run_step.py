@@ -45,11 +45,6 @@ try:  # Support both package-style (`python -m`) and script-style invocation.
     from .prepare_embeddings import EmbeddingPrepConfig, run as run_embedding_prep
     from .generate_keywords import KeywordGenerationConfig, run as run_keyword_generation
     from .generate_embeddings import EmbeddingGenerationConfig, run as run_embedding_generation
-    from .run_category_pipeline import (
-        CategoryPipelineConfig,
-        run as run_category_pipeline_step,
-    )
-    from .export_for_frontend import FrontendExportConfig, run as run_frontend_export
 except ImportError:  # pragma: no cover - executed only when run as a stand-alone script.
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -71,11 +66,6 @@ except ImportError:  # pragma: no cover - executed only when run as a stand-alon
     from scripts.prepare_embeddings import EmbeddingPrepConfig, run as run_embedding_prep
     from scripts.generate_keywords import KeywordGenerationConfig, run as run_keyword_generation
     from scripts.generate_embeddings import EmbeddingGenerationConfig, run as run_embedding_generation
-    from scripts.run_category_pipeline import (
-        CategoryPipelineConfig,
-        run as run_category_pipeline_step,
-    )
-    from scripts.export_for_frontend import FrontendExportConfig, run as run_frontend_export
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -116,6 +106,17 @@ def main(argv: list[str] | None = None) -> int:
         help="Emit results (or dry-run config) as JSON for downstream tooling.",
     )
     args = parser.parse_args(argv)
+
+    # Report missing implementations before attempting to resolve their inputs.
+    from scripts import export_for_frontend, run_category_pipeline, run_trend_pipeline
+
+    unavailable = {
+        "category_pipeline": run_category_pipeline.UNAVAILABLE_MESSAGE,
+        "frontend_export": export_for_frontend.UNAVAILABLE_MESSAGE,
+        "trend_pipeline": run_trend_pipeline.UNAVAILABLE_MESSAGE,
+    }
+    if args.step in unavailable:
+        parser.error(unavailable[args.step])
 
     config_path = args.config.expanduser().resolve()
     config_data = _load_config(config_path)
@@ -162,20 +163,6 @@ def main(argv: list[str] | None = None) -> int:
             _emit_config("embedding_preparation", step_config, args.json)
             return 0
         result = run_embedding_prep(step_config)
-    elif args.step == "category_pipeline":
-        step_config = _parse_category_pipeline_config(step_cfg, base_dir)
-        if args.dry_run:
-            _emit_config("category_pipeline", step_config, args.json)
-            return 0
-        result = run_category_pipeline_step(step_config)
-    elif args.step == "frontend_export":
-        step_config = _parse_frontend_export_config(step_cfg, base_dir)
-        if args.dry_run:
-            _emit_config("frontend_export", step_config, args.json)
-            return 0
-        result = run_frontend_export(step_config)
-    elif args.step == "trend_pipeline":
-        raise NotImplementedError("Trend pipeline step is not implemented in this toolkit.")
     else:
         raise RuntimeError(f"Unsupported step: {args.step}")
 
@@ -274,22 +261,6 @@ def _parse_embedding_prep_config(config: Mapping[str, Any], base_dir: Path) -> E
     )
 
 
-def _parse_category_pipeline_config(config: Mapping[str, Any], base_dir: Path) -> CategoryPipelineConfig:
-    return CategoryPipelineConfig(
-        categories_dir=_resolve_path(base_dir, config["categories_dir"]),
-        output_dir=_resolve_path(base_dir, config["output_dir"]),
-        overrides_dir=_resolve_path(base_dir, config["overrides_dir"]) if config.get("overrides_dir") else None,
-        exclusion_list=_resolve_path(base_dir, config["exclusion_list"]) if config.get("exclusion_list") else None,
-    )
-
-
-def _parse_frontend_export_config(config: Mapping[str, Any], base_dir: Path) -> FrontendExportConfig:
-    return FrontendExportConfig(
-        output_dir=_resolve_path(base_dir, config["output_dir"]),
-        schema_version=int(config["schema_version"]),
-    )
-
-
 def _emit_config(step: str, config: Any, as_json: bool) -> None:
     payload = {"step": step, "config": _to_serialisable(config)}
     if as_json:
@@ -369,8 +340,6 @@ def _result_summary(step: str, result: Any) -> str:
                 output=result.output_dir,
             )
         )
-    if step == "frontend_export":
-        return "Frontend export step completed."
     return f"Step {step} completed."
 
 

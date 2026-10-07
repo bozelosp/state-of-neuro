@@ -1,10 +1,8 @@
 # state_of_neuro/scripts/run_category_pipeline.py
-"""Stub for the category tagging pipeline (Step 9 placeholder).
+"""Category assignment is unavailable in this public repository (Step 9).
 
-This module intentionally raises ``NotImplementedError`` so we remember to
-restore the category tagging workflow on Monday. The future implementation will
-consume canonical clusters, apply category tagging heuristics, and emit
-category-level exports for downstream analytics.
+Steps 7–9 and the production curated inputs are not distributed here. See
+README.md for the conditional export path using existing curated inputs.
 """
 
 from __future__ import annotations
@@ -15,7 +13,7 @@ from pathlib import Path
 
 @dataclass
 class CategoryPipelineConfig:
-    """Configuration stub for the category tagging pipeline."""
+    """Parameters for the unavailable category pipeline."""
 
     categories_dir: Path
     output_dir: Path
@@ -23,10 +21,12 @@ class CategoryPipelineConfig:
     exclusion_list: Path | None = None
 
 
-def run(config: CategoryPipelineConfig) -> None:  # pragma: no cover - stub
-    """Placeholder runner until the category tagging pipeline is rebuilt."""
+UNAVAILABLE_MESSAGE = (
+    "Category pipeline unavailable in this public repository. See README.md "
+    "for reproduction status and the curated-input export path."
+)
 
-    raise NotImplementedError(
-        "Category pipeline reconstruction pending — restore tagging heuristics by Monday."
-    )
 
+def run(config: CategoryPipelineConfig) -> None:
+    """Report the missing implementation without generating substitute results."""
+    raise NotImplementedError(UNAVAILABLE_MESSAGE)

@@ -1,13 +1,8 @@
 # state_of_neuro/scripts/export_for_frontend.py
-"""Stub for the postponed Moritz visualisation export step (final pipeline handoff).
+"""Frontend application export is unavailable in this public repository.
 
-The implementation is intentionally deferred while the Next.js dashboard is
-being rebuilt; keeping this placeholder allows ``scripts/run_step.py`` to keep
-a consistent interface for the eventual Moritz export stage.
-
-Pending work includes:
-- Normalising trend metrics into the schema consumed by Moritz Stefaner’s app.
-- Writing the topic-trend input bundle into ``output_dir`` for that dashboard.
+The published interactive is maintained separately. The implemented
+topic_trends_export.py writes analysis bundles, not that application.
 """
 
 from __future__ import annotations
@@ -24,6 +19,13 @@ class FrontendExportConfig:
     schema_version: int
 
 
+UNAVAILABLE_MESSAGE = (
+    "Frontend export unavailable in this public repository. See README.md "
+    "for the published interactive and the separate topic-trend data "
+    "exporter."
+)
+
+
 def run(config: FrontendExportConfig) -> None:
-    """Placeholder entry point for the Moritz dashboard export handoff."""
-    raise NotImplementedError("Dashboard export logic for Moritz is not yet implemented.")
+    """Report the missing implementation without generating substitute results."""
+    raise NotImplementedError(UNAVAILABLE_MESSAGE)

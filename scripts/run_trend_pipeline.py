@@ -1,15 +1,8 @@
 # state_of_neuro/scripts/run_trend_pipeline.py
-"""Stub for the deferred trend and network analytics pipeline.
+"""Additional trend analytics are unavailable in this public repository.
 
-The original emerging trends workflow lived under ``emerging_trends/`` and
-depended on FAISS indices, co-occurrence graphs, and quality gates. This shim
-keeps the API shape intact while the analytics code is being audited for
-release.
-
-Pending reinstatement tasks:
-- Port FAISS index builders and time-series scorers into the public tree.
-- Recreate quality-gate JSON outputs expected by editorial reviews.
-- Document scenario presets so ``run_step`` consumers can drive the pipeline.
+This placeholder is not the published interactive or the implemented
+topic_trends_export.py. See README.md for the available export path and limits.
 """
 
 from __future__ import annotations
@@ -24,10 +17,16 @@ class TrendPipelineConfig:
 
     metrics_dir: Path
     faiss_dir: Path
-    quality_gates: Path
     scenario: str
 
 
+UNAVAILABLE_MESSAGE = (
+    "Trend pipeline unavailable in this public repository. See README.md "
+    "for reproduction status; topic_trends_export.py only exports supplied "
+    "curated inputs."
+)
+
+
 def run(config: TrendPipelineConfig) -> None:
-    """Placeholder entry point for trend pipeline."""
-    raise NotImplementedError("Trend pipeline logic not yet implemented.")
+    """Report the missing implementation without generating substitute results."""
+    raise NotImplementedError(UNAVAILABLE_MESSAGE)
