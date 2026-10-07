@@ -1,0 +1,8 @@
+beautifulsoup4
+numpy
+openai
+pandas
+pyarrow
+PyYAML
+rapidfuzz
+tqdm

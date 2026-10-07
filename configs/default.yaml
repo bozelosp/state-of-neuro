@@ -1,13 +1,10 @@
 # configs/default.yaml
-
+# model: null reuses recorded decisions; set a model explicitly for new classifier calls.
 version: 1
-include: config_schema.yaml
-
 paths:
   repo_root: ..
   data_root: ../data
   generated_root: ../artifacts
-
 steps:
   source_acquisition:
     listing_path: ../data/raw/pubmed_2025.html
@@ -24,8 +21,8 @@ steps:
     output_csv: ../artifacts/journals/neuroscience_only.csv
     area_name: neuroscience
     areas_column: Areas
-    metric_column: "Cites / Doc. (2years)"
-    delimiter: ";"
+    metric_column: Cites / Doc. (2years)
+    delimiter: ;
   abstract_ingestion:
     input_dir: ../data/raw
     output_dir: ../artifacts/abstracts
@@ -34,10 +31,10 @@ steps:
     metadata_output: ../artifacts/abstracts/hash_id_to_metadata.pkl
     manifest_path: ../artifacts/abstracts/hash_id_manifest.csv
     hash_fields:
-      - title
-      - abstract
-      - doi
-      - journal
+    - title
+    - abstract
+    - doi
+    - journal
   keyword_generation:
     input_dir: ../artifacts/abstracts
     output_dir: ../artifacts/keywords
@@ -49,6 +46,17 @@ steps:
     metadata_path: ../artifacts/abstracts/hash_id_to_metadata.pkl
     output_dir: ../artifacts/keywords/aggregated
     top_n: 15000
+  attach_keywords:
+    metadata_path: ../artifacts/abstracts/hash_id_to_metadata.pkl
+    keywords_dir: ../artifacts/keywords
+    output_path: ../artifacts/abstracts/tagged_metadata.pkl
+    records_path: ../artifacts/keywords/tag_frequencies.json
+  specificity_scoring:
+    records_path: ../artifacts/keywords/tag_frequencies.json
+    output_path: ../artifacts/specificity/tag_specificity_flags.json
+    model: null
+    batch_size: 32
+    temperature: 0.0
   embedding_generation:
     input_dir: ../artifacts/abstracts
     output_dir: ../data/embeddings_raw
@@ -59,20 +67,47 @@ steps:
     output_dir: ../artifacts/embeddings
     embed_dim: 800
     block_size: 50000
+  term_embeddings:
+    categories_dir: ../data/reorganized_categories
+    output_path: ../artifacts/embeddings/keyword_embeddings.json
+    model: text-embedding-3-large
+    batch_size: 64
+    records_path: ../artifacts/keywords/tag_frequencies.json
+  category_assignment:
+    records_path: ../artifacts/keywords/tag_frequencies.json
+    embeddings_path: ../artifacts/embeddings/keyword_embeddings.json
+    category_embeddings_path: ../data/category_embeddings.json
+    specificity_path: ../artifacts/specificity/tag_specificity_flags.json
+    output_dir: ../artifacts/category_assignments
+    embedding_dimensions: 800
+    top_n: 15000
+    min_similarity: 0.01
+    max_similarity: 0.7
+  canonical_clustering:
+    categories_dir: ../data/reorganized_categories
+    embeddings_path: ../artifacts/embeddings/keyword_embeddings.json
+    specificity_path: ../artifacts/specificity/tag_specificity_flags.json
+    decisions_path: ../artifacts/canonical/naming_decisions.json
+    output_path: ../artifacts/canonical/category_clusters.json
+    acronym_path: null
+    species_path: null
+    singular_plural_path: null
+    model: null
+    temperature: 0.0
+    cosine_threshold: 0.8
+    levenshtein_threshold: 0.825
+  category_pipeline:
+    clusters_path: ../artifacts/canonical/category_clusters.json
+    output_dir: ../artifacts/master
+    preserved_clusters_path: null
   topic_trends:
     authoritative_clusters_path: ../artifacts/master/MASTER_TAG_CLUSTERS.json
-    metadata_path: ../artifacts/abstracts/hash_id_to_metadata.pkl
+    metadata_path: ../artifacts/abstracts/tagged_metadata.pkl
     output_dir: ../artifacts/topic_trends
     master_tag_clusters_path: ../artifacts/master/MASTER_TAG_CLUSTERS.json
     case_variants_path: ../artifacts/topic_trends/tag_case_variants.json
     apply_excluded_tags: false
     miscellaneous_limit: 300
     min_frequency: 24
-  frontend_export:
-    output_dir: ../artifacts/web_exports
-    schema_version: 1
-  trend_pipeline:
-    scenario: local_repro
-
 logging:
   level: INFO

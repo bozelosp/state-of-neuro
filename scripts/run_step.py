@@ -45,11 +45,6 @@ try:  # Support both package-style (`python -m`) and script-style invocation.
     from .prepare_embeddings import EmbeddingPrepConfig, run as run_embedding_prep
     from .generate_keywords import KeywordGenerationConfig, run as run_keyword_generation
     from .generate_embeddings import EmbeddingGenerationConfig, run as run_embedding_generation
-    from .run_category_pipeline import (
-        CategoryPipelineConfig,
-        run as run_category_pipeline_step,
-    )
-    from .export_for_frontend import FrontendExportConfig, run as run_frontend_export
 except ImportError:  # pragma: no cover - executed only when run as a stand-alone script.
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -71,11 +66,6 @@ except ImportError:  # pragma: no cover - executed only when run as a stand-alon
     from scripts.prepare_embeddings import EmbeddingPrepConfig, run as run_embedding_prep
     from scripts.generate_keywords import KeywordGenerationConfig, run as run_keyword_generation
     from scripts.generate_embeddings import EmbeddingGenerationConfig, run as run_embedding_generation
-    from scripts.run_category_pipeline import (
-        CategoryPipelineConfig,
-        run as run_category_pipeline_step,
-    )
-    from scripts.export_for_frontend import FrontendExportConfig, run as run_frontend_export
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -100,8 +90,12 @@ def main(argv: list[str] | None = None) -> int:
             "embedding_generation",
             "embedding_preparation",
             "category_pipeline",
-            "frontend_export",
-            "trend_pipeline",
+            "specificity_scoring",
+            "canonical_clustering",
+            "attach_keywords",
+            "term_embeddings",
+            "category_assignment",
+            "topic_trends",
         ],
         help="Step to execute.",
     )
@@ -125,6 +119,37 @@ def main(argv: list[str] | None = None) -> int:
         raise KeyError(f"Step '{args.step}' not found in configuration.")
 
     base_dir = config_path.parent
+
+    from scripts import attach_keywords, specificity_scoring, canonical_clustering, term_embeddings
+    from scripts import run_category_pipeline, topic_trends_export, category_assignment
+
+    recovered = {
+        "attach_keywords": (attach_keywords.AttachKeywordsConfig, attach_keywords.run),
+        "category_assignment": (category_assignment.CategoryAssignmentConfig, category_assignment.run),
+        "term_embeddings": (term_embeddings.TermEmbeddingsConfig, term_embeddings.run),
+        "specificity_scoring": (specificity_scoring.SpecificityConfig, specificity_scoring.run),
+        "canonical_clustering": (canonical_clustering.CanonicalConfig, canonical_clustering.run),
+        "category_pipeline": (run_category_pipeline.CategoryPipelineConfig, run_category_pipeline.run),
+    }
+    if args.step in recovered:
+        config_type, runner = recovered[args.step]
+        values = dict(step_cfg)
+        for key, value in values.items():
+            if value is not None and (key.endswith("_path") or key.endswith("_dir")):
+                values[key] = _resolve_path(base_dir, value)
+        step_config = config_type(**values)
+        if args.dry_run:
+            _emit_config(args.step, step_config, args.json)
+            return 0
+        _emit_result(args.step, runner(step_config), args.json)
+        return 0
+    if args.step == "topic_trends":
+        step_config = topic_trends_export._config_from_yaml(step_cfg, base_dir)
+        if args.dry_run:
+            _emit_config(args.step, step_config, args.json)
+            return 0
+        _emit_result(args.step, topic_trends_export.run(step_config), args.json)
+        return 0
 
     if args.step == "source_acquisition":
         step_config = _parse_source_acquisition_config(step_cfg, base_dir)
@@ -150,6 +175,12 @@ def main(argv: list[str] | None = None) -> int:
             _emit_config("keyword_generation", step_config, args.json)
             return 0
         result = run_keyword_generation(step_config)
+    elif args.step == "keyword_aggregation":
+        step_config = _parse_keyword_aggregation_config(step_cfg, base_dir)
+        if args.dry_run:
+            _emit_config(args.step, step_config, args.json)
+            return 0
+        result = run_keyword_aggregation(step_config)
     elif args.step == "embedding_generation":
         step_config = _parse_embedding_generation_config(step_cfg, base_dir)
         if args.dry_run:
@@ -162,20 +193,6 @@ def main(argv: list[str] | None = None) -> int:
             _emit_config("embedding_preparation", step_config, args.json)
             return 0
         result = run_embedding_prep(step_config)
-    elif args.step == "category_pipeline":
-        step_config = _parse_category_pipeline_config(step_cfg, base_dir)
-        if args.dry_run:
-            _emit_config("category_pipeline", step_config, args.json)
-            return 0
-        result = run_category_pipeline_step(step_config)
-    elif args.step == "frontend_export":
-        step_config = _parse_frontend_export_config(step_cfg, base_dir)
-        if args.dry_run:
-            _emit_config("frontend_export", step_config, args.json)
-            return 0
-        result = run_frontend_export(step_config)
-    elif args.step == "trend_pipeline":
-        raise NotImplementedError("Trend pipeline step is not implemented in this toolkit.")
     else:
         raise RuntimeError(f"Unsupported step: {args.step}")
 
@@ -274,22 +291,6 @@ def _parse_embedding_prep_config(config: Mapping[str, Any], base_dir: Path) -> E
     )
 
 
-def _parse_category_pipeline_config(config: Mapping[str, Any], base_dir: Path) -> CategoryPipelineConfig:
-    return CategoryPipelineConfig(
-        categories_dir=_resolve_path(base_dir, config["categories_dir"]),
-        output_dir=_resolve_path(base_dir, config["output_dir"]),
-        overrides_dir=_resolve_path(base_dir, config["overrides_dir"]) if config.get("overrides_dir") else None,
-        exclusion_list=_resolve_path(base_dir, config["exclusion_list"]) if config.get("exclusion_list") else None,
-    )
-
-
-def _parse_frontend_export_config(config: Mapping[str, Any], base_dir: Path) -> FrontendExportConfig:
-    return FrontendExportConfig(
-        output_dir=_resolve_path(base_dir, config["output_dir"]),
-        schema_version=int(config["schema_version"]),
-    )
-
-
 def _emit_config(step: str, config: Any, as_json: bool) -> None:
     payload = {"step": step, "config": _to_serialisable(config)}
     if as_json:
@@ -369,8 +370,6 @@ def _result_summary(step: str, result: Any) -> str:
                 output=result.output_dir,
             )
         )
-    if step == "frontend_export":
-        return "Frontend export step completed."
     return f"Step {step} completed."
 
 
